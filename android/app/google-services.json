@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659525564593",
+    "project_id": "vecindapp-sixapp",
+    "storage_bucket": "vecindapp-sixapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659525564593:android:176ff3a5a1cf4a9bba8a90",
+        "android_client_info": {
+          "package_name": "com.sixapp.vecindapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6XPe7oyhwQ8BsorbMEBREHEqYJifBzWg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

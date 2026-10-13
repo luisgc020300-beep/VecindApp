@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() { return request.auth != null; }
+
+    function esMiembro(comunidadId) {
+      return isAuth() &&
+          request.auth.uid in get(/databases/$(database)/documents/comunidades/$(comunidadId)).data.members;
+    }
+
+    function esPresidente(comunidadId) {
+      return esMiembro(comunidadId) &&
+          get(/databases/$(database)/documents/comunidades/$(comunidadId)).data.members[request.auth.uid].rol == 'presidente';
+    }
+
+    // Perfil propio -- nombre y comunidad activa, cada usuario solo ve/edita
+    // el suyo.
+    match /users/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+
+    // Lookup de código -> comunidadId (mismo patrón que Repara): se puede
+    // leer un documento concreto si sabes el código exacto, nunca listar
+    // todos los códigos existentes.
+    match /joinCodes/{code} {
+      allow get: if isAuth();
+      allow create: if isAuth();
+      allow list, update, delete: if false;
+    }
+
+    match /comunidades/{comunidadId} {
+      allow read: if esMiembro(comunidadId);
+
+      // Crear: el creador se añade a sí mismo como único miembro, con rol
+      // presidente -- nunca puede crear la comunidad ya con otros miembros
+      // metidos.
+      allow create: if isAuth() &&
+          request.resource.data.members.size() == 1 &&
+          request.resource.data.members[request.auth.uid].rol == 'presidente';
+
+      // Update: el presidente edita lo que quiera. Alguien que todavía NO
+      // es miembro puede unirse (código de invitación) tocando solo el
+      // mapa members, y solo su propia entrada, siempre con rol 'vecino'
+      // -- nunca se autoasigna presidente ni toca la entrada de otro.
+      allow update: if isAuth() && (
+        esPresidente(comunidadId) ||
+        (
+          !esMiembro(comunidadId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+          request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid]) &&
+          request.resource.data.members[request.auth.uid].rol == 'vecino'
+        )
+      );
+      allow delete: if false;
+
+      // Avisos: solo el presidente publica/borra, cualquier vecino lee.
+      match /avisos/{avisoId} {
+        allow read: if esMiembro(comunidadId);
+        allow create: if esPresidente(comunidadId) && request.resource.data.creadoPorUid == request.auth.uid;
+        allow update, delete: if esPresidente(comunidadId);
+      }
+
+      // Incidencias: cualquier vecino reporta y lee; cambiar estado o
+      // borrar queda abierto a cualquier miembro en este MVP (no se
+      // distingue todavía "quien la reportó" de "quien la resuelve").
+      match /incidencias/{incidenciaId} {
+        allow read: if esMiembro(comunidadId);
+        allow create: if esMiembro(comunidadId) && request.resource.data.creadoPorUid == request.auth.uid;
+        allow update, delete: if esMiembro(comunidadId);
+      }
+    }
+  }
+}

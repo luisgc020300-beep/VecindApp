@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Firestore y este bucket están deliberadamente en la misma región
+    // (europe-west1) -- lección de Repara, octubre 2026: cuando no
+    // coinciden, esta lectura cruzada a Firestore falla siempre con
+    // "unauthorized" sin ningún aviso claro. Verificado al crear el
+    // proyecto, no asumido.
+    function esMiembro(comunidadId) {
+      return request.auth != null &&
+          request.auth.uid in firestore.get(/databases/(default)/documents/comunidades/$(comunidadId)).data.members;
+    }
+
+    match /comunidades/{comunidadId}/{allPaths=**} {
+      allow read, write: if esMiembro(comunidadId);
+    }
+  }
+}
